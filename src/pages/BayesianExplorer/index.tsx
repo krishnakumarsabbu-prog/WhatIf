@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   queryPosterior,
   computeMutualInformation,
   computeCPT,
   type EvidenceMap,
+  type PosteriorResult,
   type NodeName,
   NODE_LABELS,
 } from '@/api/bayesian';
@@ -24,46 +25,47 @@ const EVIDENCE_OPTIONS: Record<keyof EvidenceMap, { label: string; values: strin
 
 const NODES_ORDER: NodeName[] = ['DOC_VERIFY', 'FACE_SCAN', 'GSA_RESULT', 'PDMA_RESULT', 'RISK_RESULT', 'IDENTITY_VERIFIED'];
 
+const DEFAULT_POSTERIOR: PosteriorResult = {
+  p_verified:     0,
+  p_not_verified: 1,
+  confidence:     'LOW',
+  sample_size:    0,
+  algorithm:      'loading…',
+};
+
 export function BayesianExplorer() {
   const [evidence, setEvidence] = useState<EvidenceMap>({});
   const [activeNode, setActiveNode] = useState<NodeName | null>(null);
   const [showCPT, setShowCPT] = useState(false);
 
-  const posterior = useMemo(() => queryPosterior(evidence), [evidence]);
+  const { data: posterior = DEFAULT_POSTERIOR } = useQuery({
+    queryKey: ['posterior', evidence],
+    queryFn:  () => queryPosterior(evidence),
+  });
 
   const { data: miScores = [] } = useQuery({
     queryKey: ['mi'],
-    queryFn: computeMutualInformation,
+    queryFn:  computeMutualInformation,
     staleTime: Infinity,
   });
 
-  const cptData = useMemo(
-    () => (activeNode ? computeCPT(activeNode) : null),
-    [activeNode]
-  );
+  const { data: cptData } = useQuery({
+    queryKey: ['cpt', activeNode],
+    queryFn:  () => computeCPT(activeNode!),
+    enabled:  !!activeNode,
+  });
 
-  // Build per-node pass probabilities for graph
-  const nodeStates = useMemo(() => {
-    return NODES_ORDER.map(name => {
-      const nodeEvidence: EvidenceMap = { ...evidence };
-      const result = queryPosterior(nodeEvidence);
-      // Approximate per-node pass from marginal or evidence
-      const nodeResult = queryPosterior({ ...evidence, IDENTITY_VERIFIED: undefined });
-      const passProb =
-        name === 'IDENTITY_VERIFIED'
-          ? posterior.p_verified
-          : name === 'RISK_RESULT'
-          ? queryPosterior({ ...evidence }).p_verified * 1.05
-          : name === 'PDMA_RESULT'
-          ? queryPosterior({ ...evidence }).p_verified * 1.12
-          : name === 'GSA_RESULT'
-          ? queryPosterior({ DOC_VERIFY: evidence.DOC_VERIFY }).p_verified * 1.2
-          : name === 'FACE_SCAN'
-          ? queryPosterior({ DOC_VERIFY: evidence.DOC_VERIFY }).p_verified * 1.15
-          : queryPosterior({}).p_verified * 1.3;
-      return { name, p_pass: Math.min(0.99, Math.max(0.01, passProb)) };
-    });
-  }, [evidence, posterior]);
+  // Build per-node pass probabilities for graph from posterior
+  const nodeStates = NODES_ORDER.map(name => {
+    const passProb =
+      name === 'IDENTITY_VERIFIED' ? posterior.p_verified
+      : name === 'RISK_RESULT'     ? Math.min(0.99, posterior.p_verified * 1.05)
+      : name === 'PDMA_RESULT'     ? Math.min(0.99, posterior.p_verified * 1.12)
+      : name === 'GSA_RESULT'      ? Math.min(0.99, posterior.p_verified * 1.2)
+      : name === 'FACE_SCAN'       ? Math.min(0.99, posterior.p_verified * 1.15)
+      :                              Math.min(0.99, posterior.p_verified * 1.3);
+    return { name, p_pass: Math.min(0.99, Math.max(0.01, passProb)) };
+  });
 
   function setEvidenceField(key: keyof EvidenceMap, val: string) {
     if (val === '(any)') {

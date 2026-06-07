@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSimulationStore } from '@/store/useSimulationStore';
-import { runSensitivitySweep, getScenarioCards, type RuleOverrides, DEFAULT_OVERRIDES } from '@/api/simulation';
+import { runSensitivitySweep, getScenarioCards, type RuleOverrides, type SensitivityPoint, type ScenarioCard, DEFAULT_OVERRIDES } from '@/api/simulation';
 import { HarnessCard, AlgorithmBadge, StatusBadge } from '@/design-system/components';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -84,14 +84,13 @@ export function WhatIfEngine() {
   const { overrides, result, running, runSim, resetOverrides, saveScenario, setOverride } = useSimulationStore();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [scenarioName, setScenarioName] = useState('');
-  const [sensitivityData, setSensitivityData] = useState<ReturnType<typeof runSensitivitySweep>>([]);
-  const [presets, setPresets] = useState<ReturnType<typeof getScenarioCards>>([]);
+  const [sensitivityData, setSensitivityData] = useState<SensitivityPoint[]>([]);
+  const [presets, setPresets] = useState<ScenarioCard[]>([]);
 
   useEffect(() => {
-    // Pre-compute presets and sensitivity on mount (deferred)
     const t = setTimeout(() => {
-      setSensitivityData(runSensitivitySweep());
-      setPresets(getScenarioCards());
+      runSensitivitySweep().then(setSensitivityData).catch(() => {});
+      getScenarioCards().then(setPresets).catch(() => {});
     }, 200);
     return () => clearTimeout(t);
   }, []);

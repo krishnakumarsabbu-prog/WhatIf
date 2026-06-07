@@ -66,8 +66,7 @@ export function AICopilot() {
     setInput('');
     setLoading(true);
 
-    setTimeout(() => {
-      const response = generateCopilotResponse(text);
+    generateCopilotResponse(text).then(response => {
       const assistantMsg: CopilotMessage = {
         id:        crypto.randomUUID(),
         role:      'assistant',
@@ -76,7 +75,7 @@ export function AICopilot() {
       };
       setMessages(prev => [...prev, assistantMsg]);
       setLoading(false);
-    }, 400 + Math.random() * 300);
+    }).catch(() => setLoading(false));
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

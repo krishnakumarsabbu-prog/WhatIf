@@ -38,16 +38,18 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
 
   runSim: () => {
     set({ running: true });
-    // defer to next tick so React re-renders the loading state
-    setTimeout(() => {
-      const result = runSimulation(get().overrides);
+    runSimulation(get().overrides).then(result => {
       set({ result, running: false });
-    }, 60);
+    }).catch(() => set({ running: false }));
   },
 
   saveScenario: (name) => {
     const { overrides, result } = get();
     if (!result) return;
+    // Save to backend (fire-and-forget) + local state
+    import('@/api/simulation').then(({ saveScenario }) =>
+      saveScenario(name, overrides, result).catch(() => {})
+    );
     const scenario: SavedScenario = {
       id:      crypto.randomUUID(),
       name,

@@ -107,7 +107,7 @@ export function LiveDecisionStream() {
                 {evt.started_at ? formatTime(evt.started_at) : '—'}
               </span>
               <span style={{ color: 'var(--accent-primary)' }}>
-                {truncateTx(evt.transaction_id)}
+                {truncateTx(evt.transaction_id ?? evt.tx_id ?? evt.id)}
               </span>
               <StatusBadge
                 status={isPass ? 'pass' : 'fail'}

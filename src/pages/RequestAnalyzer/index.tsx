@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react';
-import { db } from '@/lib/db';
-import { computeFeatureImportance } from '@/api/rules';
+import { useState, useEffect } from 'react';
+import { apiClient } from '@/api/client';
 import { runSimulation } from '@/api/simulation';
 import { HarnessCard } from '@/design-system/components/HarnessCard';
 import { StatusBadge } from '@/design-system/components/StatusBadge';
-import { FileSearch, Upload, RotateCcw, TrendingDown, TrendingUp, ChevronRight, CircleAlert as AlertCircle } from 'lucide-react';
+import { FileSearch, Upload, RotateCcw, TrendingDown, TrendingUp, ChevronRight, CircleAlert } from 'lucide-react';
 
 interface ParsedTransaction {
   id:           string;
@@ -82,46 +81,36 @@ function evaluateRuleTrace(tx: ParsedTransaction): RuleTrace[] {
   return traces;
 }
 
-function computeSHAP(tx: ParsedTransaction) {
-  const allTxs = db.transactions;
-  const baseRate = allTxs.filter(t => t.final_result === 'IDENTITY_VERIFIED').length / allTxs.length;
-
-  const features = [
-    { label: 'cmra_flag',    value: tx.cmra_flag,   group: (ts: typeof allTxs[0]) => ts.cmra_flag === tx.cmra_flag },
-    { label: 'pbsa_flag',    value: tx.pbsa_flag,   group: (ts: typeof allTxs[0]) => ts.pbsa_flag === tx.pbsa_flag },
-    { label: 'pobox_flag',   value: tx.pobox_flag,  group: (ts: typeof allTxs[0]) => ts.pobox_flag === tx.pobox_flag },
-    { label: 'comm_error',   value: tx.comm_error,  group: (ts: typeof allTxs[0]) => ts.comm_error === tx.comm_error },
-    { label: 'fault_code',   value: tx.fault_code,  group: (ts: typeof allTxs[0]) => ts.fault_code === tx.fault_code },
-    { label: 'doc_result',   value: tx.doc_result,  group: (ts: typeof allTxs[0]) => ts.doc_result === tx.doc_result },
-    { label: 'face_result',  value: tx.face_result, group: (ts: typeof allTxs[0]) => ts.face_result === tx.face_result },
-  ];
-
-  return features.map(f => {
-    const subset = allTxs.filter(f.group as any);
-    const rate = subset.length > 0 ? subset.filter(t => t.final_result === 'IDENTITY_VERIFIED').length / subset.length : baseRate;
-    const shap = rate - baseRate;
-    return {
-      label:     f.label,
-      value:     f.value === null ? 'null' : String(f.value),
-      shap:      parseFloat(shap.toFixed(4)),
-      abs_shap:  Math.abs(shap),
-      direction: shap >= 0 ? 'positive' : 'negative',
-      n:         subset.length,
-    };
-  }).sort((a, b) => b.abs_shap - a.abs_shap);
-}
 
 export function RequestAnalyzer() {
   const [jsonInput, setJsonInput] = useState('');
   const [parsed, setParsed] = useState<ParsedTransaction | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [shapValues, setShapValues] = useState<any[]>([]);
+  const [whatIfSim, setWhatIfSim] = useState<any | null>(null);
 
-  const ruleTrace = useMemo(() => (parsed ? evaluateRuleTrace(parsed) : []), [parsed]);
-  const shapValues = useMemo(() => (parsed ? computeSHAP(parsed) : []), [parsed]);
+  const ruleTrace = parsed ? evaluateRuleTrace(parsed) : [];
 
-  const whatIfSim = useMemo(() => {
-    if (!parsed) return null;
-    return runSimulation({ rule_7_cmra_continue: true, rule_8_pbsa_continue: true, rule_9_pobox_continue: true });
+  // When parsed changes, fetch SHAP from backend and run what-if
+  useEffect(() => {
+    if (!parsed) { setShapValues([]); setWhatIfSim(null); return; }
+
+    // Use global feature importance as SHAP proxy
+    apiClient.get('/analytics/shap/global').then(({ data }) => {
+      const shapList = data.map((f: any) => ({
+        label:     f.feature,
+        value:     String((parsed as any)[f.feature] ?? f.feature),
+        shap:      parsed.final_result === 'IDENTITY_NOT_VERIFIED' ? -f.importance : f.importance,
+        abs_shap:  f.importance,
+        direction: f.direction,
+        n:         0,
+      }));
+      setShapValues(shapList);
+    }).catch(() => {});
+
+    runSimulation({ rule_7_cmra_continue: true, rule_8_pbsa_continue: true, rule_9_pobox_continue: true })
+      .then(setWhatIfSim)
+      .catch(() => {});
   }, [parsed]);
 
   function loadSample() {
@@ -220,7 +209,7 @@ export function RequestAnalyzer() {
             />
             {parseError && (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
-                <AlertCircle size={12} color="var(--status-fail)" />
+                <CircleAlert size={12} color="var(--status-fail)" />
                 <span style={{ fontSize: '11px', color: 'var(--status-fail)', fontFamily: 'var(--font-mono)' }}>{parseError}</span>
               </div>
             )}
