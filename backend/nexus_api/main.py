@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
 from .websocket import websocket_manager
-from .routers import analytics, simulation, drift, rules, copilot, ingest
+from .routers import analytics, simulation, drift, rules, copilot, ingest, graph, population, recommendations, intelligence
 
 
 @asynccontextmanager
@@ -31,12 +31,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(analytics.router,  prefix="/api/v1/analytics",  tags=["Analytics"])
-app.include_router(simulation.router, prefix="/api/v1/simulation", tags=["Simulation"])
-app.include_router(drift.router,      prefix="/api/v1/drift",      tags=["Drift"])
-app.include_router(rules.router,      prefix="/api/v1/rules",      tags=["Rules"])
-app.include_router(copilot.router,    prefix="/api/v1/copilot",    tags=["Copilot"])
-app.include_router(ingest.router,     prefix="/api/v1/ingest",     tags=["Ingest"])
+app.include_router(analytics.router,       prefix="/api/v1/analytics",       tags=["Analytics"])
+app.include_router(simulation.router,      prefix="/api/v1/simulation",      tags=["Simulation"])
+app.include_router(drift.router,           prefix="/api/v1/drift",           tags=["Drift"])
+app.include_router(rules.router,           prefix="/api/v1/rules",           tags=["Rules"])
+app.include_router(copilot.router,         prefix="/api/v1/copilot",         tags=["Copilot"])
+app.include_router(ingest.router,          prefix="/api/v1/ingest",          tags=["Ingest"])
+app.include_router(graph.router,           prefix="/api/v1/graph",           tags=["Graph"])
+app.include_router(population.router,      prefix="/api/v1/population",      tags=["Population"])
+app.include_router(recommendations.router, prefix="/api/v1/recommendations", tags=["Recommendations"])
+app.include_router(intelligence.router,    prefix="/api/v1/intelligence",    tags=["Intelligence"])
 
 
 @app.websocket("/ws/live")
