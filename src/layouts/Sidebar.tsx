@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, BarChart2, Brain, Zap, Bot,
+  LayoutDashboard, BarChart2, Brain, Zap, Bot, ShieldAlert,
   ChevronRight, type LucideIcon,
 } from 'lucide-react';
 
@@ -82,6 +82,11 @@ export function Sidebar() {
         {NAV_ITEMS.map(item => (
           <NavItem key={item.path} {...item} />
         ))}
+        {/* Fraud Detection section */}
+        <div style={{ padding: '10px 12px 4px', fontSize: 9, fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#EF4444', marginTop: 4, borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+          Fraud Detection
+        </div>
+        <NavItem path="/fraud" icon={ShieldAlert as LucideIcon} label="Fraud Portal" />
       </div>
 
       {/* Footer */}
