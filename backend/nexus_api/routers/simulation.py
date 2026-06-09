@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 
 from ..database import query, execute
-from ..engines.whatif_engine import run_simulation, sensitivity_sweep, SCENARIO_CARDS
+from ..engines.whatif_engine import run_simulation, sensitivity_sweep, SCENARIO_CARDS, trace_idpf_pipeline, find_showcase_transaction
 from ..models.domain import SimulationRequest, SaveScenarioRequest
 
 router = APIRouter()
@@ -67,3 +67,25 @@ def save_scenario(request: SaveScenarioRequest):
 def delete_scenario(scenario_id: str):
     execute("DELETE FROM simulations WHERE id = ?", (scenario_id,))
     return {"status": "deleted"}
+
+
+@router.post("/trace")
+def trace_pipeline(request: SimulationRequest):
+    """
+    Run a single representative transaction through all 5 IDPF stages.
+    Returns per-stage decisions: rule fired, outcome, reason code.
+    """
+    txs = query("SELECT * FROM transactions")
+    if not txs:
+        raise HTTPException(status_code=404, detail="No transactions available")
+    overrides = request.rule_overrides.model_dump()
+    tx = find_showcase_transaction(txs, overrides)
+    scenario_trace  = trace_idpf_pipeline(tx, overrides)
+    from ..models.domain import RuleOverrides
+    baseline_ov = RuleOverrides().model_dump()
+    baseline_trace  = trace_idpf_pipeline(tx, baseline_ov)
+    return {
+        "transaction_id": tx.get("id", "unknown"),
+        "scenario":  scenario_trace,
+        "baseline":  baseline_trace,
+    }

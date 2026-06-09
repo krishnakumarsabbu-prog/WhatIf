@@ -5,7 +5,6 @@ import { Analytics } from '@/pages/Analytics';
 import { Intelligence } from '@/pages/Intelligence';
 import { Simulate } from '@/pages/Simulate';
 import { Copilot } from '@/pages/Copilot';
-import { FraudDetection } from '@/pages/FraudDetection';
 
 export function AppRouter() {
   return (
@@ -16,7 +15,6 @@ export function AppRouter() {
         <Route path="/intelligence/*" element={<Intelligence />} />
         <Route path="/simulate/*"   element={<Simulate />} />
         <Route path="/copilot"      element={<Copilot />} />
-        <Route path="/fraud/*"      element={<FraudDetection />} />
         <Route path="*"             element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

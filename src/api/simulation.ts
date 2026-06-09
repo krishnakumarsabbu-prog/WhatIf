@@ -166,3 +166,79 @@ export async function saveScenario(
   });
   return data;
 }
+
+// ── IDPF Pipeline Trace types ──────────────────────────────────────────────
+
+export interface IDPFStageDoc {
+  outcome: 'VALIDATED' | 'NOT_VALIDATED' | 'RECAPTURE';
+  triggers: string[];
+  allowed_by_override: boolean;
+  inputs: Record<string, unknown>;
+}
+
+export interface IDPFStageFace {
+  outcome: 'VALIDATED' | 'NOT_VALIDATED';
+  triggers: string[];
+  inputs: Record<string, unknown>;
+}
+
+export interface IDPFStageGSA {
+  rule_fired: number | 'COMBO' | null;
+  outcome: 'NO_RESULT' | 'ADDRESS_NOT_CIP_COMPLIANT' | 'ADDRESS_CIP_COMPLIANT' | 'PROCESSING_ERROR';
+  reason_code: string;
+  proceed_to_pdma: boolean;
+  overridden: boolean;
+  inputs: Record<string, unknown>;
+}
+
+export interface IDPFStagePDMA {
+  evaluated: boolean;
+  rule_fired: number | null;
+  outcome: 'ADDRESS_CIP_COMPLIANT' | 'ADDRESS_NOT_CIP_COMPLIANT' | null;
+  reason_code: string | null;
+  overridden?: boolean;
+  inputs?: Record<string, unknown>;
+}
+
+export interface IDPFAddressOutcome {
+  result: 'ADDRESS_CIP_COMPLIANT' | 'ADDRESS_NOT_CIP_COMPLIANT';
+  gsa_bridged_by_pdma: boolean;
+  populate_result_relax: boolean;
+}
+
+export interface IDPFStageRisk {
+  outcome: 'ALLOW' | 'INTERDICT' | 'BLOCK';
+  reason: string;
+  inputs: Record<string, unknown>;
+}
+
+export interface IDPFFinal {
+  outcome: 'IDENTITY_VERIFIED' | 'IDENTITY_NOT_VERIFIED';
+  rejection_reasons: string[];
+  recommendation: string | null;
+  stages_passed: { document: boolean; face: boolean; address: boolean; risk: boolean };
+}
+
+export interface IDPFTrace {
+  doc_stage:       IDPFStageDoc;
+  face_stage:      IDPFStageFace;
+  gsa_stage:       IDPFStageGSA;
+  pdma_stage:      IDPFStagePDMA;
+  address_outcome: IDPFAddressOutcome;
+  risk_stage:      IDPFStageRisk;
+  final:           IDPFFinal;
+}
+
+export interface PipelineTraceResult {
+  transaction_id: string;
+  scenario: IDPFTrace;
+  baseline: IDPFTrace;
+}
+
+export async function getPipelineTrace(overrides: Partial<RuleOverrides>): Promise<PipelineTraceResult> {
+  const { data } = await apiClient.post('/simulation/trace', {
+    rule_overrides: { ...DEFAULT_OVERRIDES, ...overrides },
+    n_iterations: 1,
+  });
+  return data;
+}
